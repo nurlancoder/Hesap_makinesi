@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>İnkişaf Etmiş Hesab Makinesi</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #101010;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .calculator {
+      width: 90%;
+      max-width: 400px;
+      background: #1c1c1c;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      position: relative;
+    }
+    .display {
+      background: #333;
+      color: #fff;
+      font-size: 1.8rem;
+      border: none;
+      text-align: right;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      height: 60px;
+      width: 100%;
+    }
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .button {
+      background: #666;
+      color: #fff;
+      border: none;
+      font-size: 1.2rem;
+      border-radius: 8px;
+      padding: 15px;
+      cursor: pointer;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s;
+    }
+    .button.operator {
+      background: orange;
+    }
+    .button:active {
+      transform: scale(0.95);
+    }
+    .button.clear {
+      background: #d9534f;
+    }
+    .button.history-clear {
+      background: #5bc0de;
+      grid-column: span 4;
+    }
+    .menu {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      cursor: pointer;
+      font-size: 1.5rem;
+      color: orange;
+    }
+    .history-container {
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: #222;
+      color: #fff;
+      padding: 20px;
+      transition: left 0.3s ease;
+      z-index: 10;
+    }
+    .history-container.visible {
+      left: 0;
+    }
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .history-header button {
+      background: orange;
+      color: #fff;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .history-list {
+      margin-top: 10px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 400px) {
+      .display {
+        font-size: 1.5rem;
+        height: 50px;
+      }
+      .button {
+        font-size: 1rem;
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="calculator">
+    <div class="menu" onclick="toggleMenu()">☰</div>
+    <div class="history-container" id="historyContainer">
+      <div class="history-header">
+        <h2>Geçmiş</h2>
+        <button onclick="toggleMenu()">Kapat</button>
+      </div>
+      <div class="history-list" id="historyList">
+        Geçmiş yok
+      </div>
+    </div>
+
+    <input type="text" class="display" disabled value="0" id="display">
+    <div class="buttons">
+      <button class="button clear" onclick="clearAll()">AC</button>
+      <button class="button" onclick="toggleSign()">+/-</button>
+      <button class="button" onclick="inputOperation('%')">%</button>
+      <button class="button operator" onclick="inputOperation('/')">÷</button>
+      <button class="button" onclick="inputNumber('7')">7</button>
+      <button class="button" onclick="inputNumber('8')">8</button>
+      <button class="button" onclick="inputNumber('9')">9</button>
+      <button class="button operator" onclick="inputOperation('*')">×</button>
+      <button class="button" onclick="inputNumber('4')">4</button>
+      <button class="button" onclick="inputNumber('5')">5</button>
+      <button class="button" onclick="inputNumber('6')">6</button>
+      <button class="button operator" onclick="inputOperation('-')">-</button>
+      <button class="button" onclick="inputNumber('1')">1</button>
+      <button class="button" onclick="inputNumber('2')">2</button>
+      <button class="button" onclick="inputNumber('3')">3</button>
+      <button class="button operator" onclick="inputOperation('+')">+</button>
+      <button class="button" onclick="inputNumber('0')">0</button>
+      <button class="button" onclick="inputNumber('.')">.</button>
+      <button class="button operator" onclick="calculateResult()">=</button>
+      <button class="button history-clear" onclick="clearHistory()">Tarixçəni Təmizlə</button>
+    </div>
+  </div>
+
+  <script>
+    let displayValue = '0';
+    let firstOperand = null;
+    let operator = null;
+    let waitingForSecondOperand = false;
+    let history = [];
+
+    const display = document.getElementById('display');
+    const historyList = document.getElementById('historyList');
+    const historyContainer = document.getElementById('historyContainer');
+
+    function updateDisplay() {
+      display.value = displayValue;
+    }
+
+    function inputNumber(number) {
+      displayValue = waitingForSecondOperand ? number : displayValue === '0' ? number : displayValue + number;
+      waitingForSecondOperand = false;
+      updateDisplay();
+    }
+
+    function inputOperation(nextOperator) {
+      const inputValue = parseFloat(displayValue);
+
+      if (operator && waitingForSecondOperand) {
+        operator = nextOperator;
+        return;
+      }
+
+      if (firstOperand === null) {
+        firstOperand = inputValue;
+      } else if (operator) {
+        const result = calculate(firstOperand, operator, inputValue);
+        addHistory(`${firstOperand} ${operator} ${inputValue} = ${result}`);
+        displayValue = String(result);
+        firstOperand = result;
+      }
+
+      operator = nextOperator;
+      waitingForSecondOperand = true;
+      updateDisplay();
+    }
+
+    function calculate(first, operator, second) {
+      return operator === '+' ? first + second :
+             operator === '-' ? first - second :
+             operator === '*' ? first * second :
+             operator === '/' ? first / second :
+             operator === '%' ? first % second : second;
+    }
+
+    function calculateResult() {
+      if (operator && !waitingForSecondOperand) {
+        const result = calculate(firstOperand, operator, parseFloat(displayValue));
+        addHistory(`${firstOperand} ${operator} ${parseFloat(displayValue)} = ${result}`);
+        displayValue = String(result);
+        firstOperand = null;
+        operator = null;
+        waitingForSecondOperand = false;
+        updateDisplay();
+      }
+    }
+
+    function clearAll() {
+      displayValue = '0';
+      firstOperand = null;
+      operator = null;
+      waitingForSecondOperand = false;
+      updateDisplay();
+    }
+
+    function toggleSign() {
+      displayValue = displayValue.startsWith('-') ? displayValue.slice(1) : '-' + displayValue;
+      updateDisplay();
+    }
+
+    function addHistory(entry) {
+      history.push(entry);
+      updateHistory();
+    }
+
+    function updateHistory() {
+      historyList.innerHTML = history.length ? history.map(item => `<p>${item}</p>`).join('') : 'Əməliyyatlar tarixçəsi boşdur.';
+    }
+
+    function clearHistory() {
+      history = [];
+      updateHistory();
+    }
+
+    function toggleMenu() {
+      historyContainer.classList.toggle('visible');
+    }
+  </script>
+</body>
+</html>
